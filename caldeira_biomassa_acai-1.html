@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Caldeira a Biomassa — Caroço de Açaí</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg:     #0b0f0a;
+  --panel:  #111810;
+  --border: #1e2a1a;
+  --accent: #7ec850;
+  --warn:   #f78166;
+  --steam:  #ff6b6b;
+  --water:  #4fc3f7;
+  --biomass:#c8820a;
+  --ash:    #8a9080;
+  --air:    #a8d8ea;
+  --o2:     #80deea;
+  --smoke:  #6a7060;
+  --text:   #e2ead8;
+  --muted:  #7a8a6a;
+  --green:  #5fba42;
+  --purple: #ce93d8;
+  --mono:   'Share Tech Mono', monospace;
+}
+
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+
+body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; overflow-x:hidden; }
+
+/* ── shared ── */
+canvas { display:block; }
+.tag { font-family:var(--mono); font-size:10px; padding:2px 7px; border-radius:20px; border:1px solid; }
+.tag-ff  { color:var(--accent);  border-color:var(--accent); }
+.tag-on  { color:var(--green);   border-color:var(--green); background:rgba(95,186,66,.1); }
+.tag-off { color:var(--muted);   border-color:var(--border); }
+.dot-blink { width:7px;height:7px;border-radius:50%;background:var(--muted);display:inline-block; }
+.dot-blink.run { background:var(--green); animation:blink 1s infinite; }
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* ════ PC ≥ 900px ════ */
+#pc { display:none; height:100vh; flex-direction:column; }
+@media(min-width:900px){ #pc{display:flex;} #mob{display:none!important;} }
+@media(max-width:899px){ #mob{display:flex;} #pc{display:none!important;} }
+
+#pc-hdr {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:9px 20px; background:var(--panel); border-bottom:1px solid var(--border);
+  flex-shrink:0; position:sticky; top:0; z-index:50;
+}
+#pc-hdr h1 { font-family:var(--mono); font-size:14px; color:var(--accent); letter-spacing:1px; }
+
+#pc-body { display:grid; grid-template-columns:255px 1fr 255px; flex:1; overflow:hidden; }
+
+.pc-col {
+  background:var(--panel); overflow-y:auto; padding:14px;
+  display:flex; flex-direction:column; gap:16px;
+}
+.pc-col.left  { border-right:1px solid var(--border); }
+.pc-col.right { border-left:1px solid var(--border); }
+
+#pc-center { display:flex; flex-direction:column; overflow:hidden; }
+#pc-pid-wrap { flex-shrink:0; padding:12px; border-bottom:1px solid var(--border); }
+#pc-sbar {
+  display:flex; flex-wrap:wrap; gap:14px; padding:7px 14px;
+  background:#070b06; border-bottom:1px solid var(--border); flex-shrink:0;
+}
+#pc-charts { flex:1; overflow-y:auto; padding:10px 14px; }
+
+/* ════ MOBILE < 900px ════ */
+#mob { flex-direction:column; min-height:100vh; padding-bottom:76px; }
+#mob-hdr {
+  position:sticky; top:0; z-index:50; background:var(--panel);
+  border-bottom:1px solid var(--border); padding:9px 14px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+#mob-hdr h1 { font-family:var(--mono); font-size:12px; color:var(--accent); }
+.mob-sec { border-bottom:1px solid var(--border); padding:12px 14px; }
+.mob-sec-title { font-family:var(--mono); font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }
+#mob-pills { display:flex; flex-wrap:wrap; gap:6px; padding:8px 14px; background:#070b06; border-bottom:1px solid var(--border); }
+.pill { background:var(--panel); border:1px solid var(--border); border-radius:20px; padding:4px 9px; font-family:var(--mono); font-size:10px; display:flex; gap:4px; }
+.pill span:first-child { color:var(--muted); }
+.mob-tabs { display:flex; background:var(--panel); border-bottom:1px solid var(--border); position:sticky; top:43px; z-index:40; }
+.mob-tab { flex:1; padding:9px 2px; text-align:center; font-size:9px; font-family:var(--mono); color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; transition:all .2s; }
+.mob-tab.active { color:var(--accent); border-color:var(--accent); }
+.mob-tc { display:none; } .mob-tc.active { display:block; }
+#mob-bar {
+  position:fixed; bottom:0; left:0; right:0;
+  display:grid; grid-template-columns:1fr 1fr 1fr 1fr;
+  background:var(--panel); border-top:1px solid var(--border); z-index:100;
+}
+.mbb { padding:12px 4px 10px; border:none; border-right:1px solid var(--border); background:transparent; font-size:9px; font-family:var(--mono); cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:3px; transition:background .15s; }
+.mbb:last-child { border-right:none; }
+.mbb:active { background:var(--border); }
+.mbb .ic { font-size:17px; }
+.mbb .lb { color:var(--muted); }
+.mbb.s-start .ic{color:var(--green)} .mbb.s-stop .ic{color:var(--muted)} .mbb.s-reset .ic{color:var(--warn)} .mbb.s-ff .ic{color:var(--accent)} .mbb.s-ff.off .ic{color:var(--muted)}
+
+/* ── shared controls ── */
+.grp-title { font-family:var(--mono); font-size:10px; color:var(--accent); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+.sl-row { margin-bottom:12px; }
+.sl-hd { display:flex; justify-content:space-between; margin-bottom:3px; }
+.sl-nm { font-size:11px; color:var(--muted); }
+.sl-vl { font-family:var(--mono); font-size:11px; color:var(--text); }
+
+input[type=range].pc { -webkit-appearance:none; width:100%; height:4px; border-radius:2px; background:var(--border); outline:none; cursor:pointer; }
+input[type=range].pc::-webkit-slider-thumb { -webkit-appearance:none; width:13px; height:13px; border-radius:50%; background:var(--accent); cursor:pointer; border:2px solid var(--bg); }
+input[type=range].pc.bio::-webkit-slider-thumb  { background:var(--biomass); }
+input[type=range].pc.wtr::-webkit-slider-thumb  { background:var(--water); }
+input[type=range].pc.air2::-webkit-slider-thumb { background:var(--air); }
+
+input[type=range].mob { -webkit-appearance:none; width:100%; height:6px; border-radius:3px; background:var(--border); outline:none; cursor:pointer; }
+input[type=range].mob::-webkit-slider-thumb { -webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:var(--accent); cursor:pointer; border:3px solid var(--bg); }
+input[type=range].mob.bio::-webkit-slider-thumb  { background:var(--biomass); }
+input[type=range].mob.wtr::-webkit-slider-thumb  { background:var(--water); }
+input[type=range].mob.air2::-webkit-slider-thumb { background:var(--air); }
+
+.pc-btns { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.pcb { padding:8px 4px; border:none; border-radius:5px; font-size:11px; font-family:var(--mono); cursor:pointer; transition:opacity .15s,transform .1s; text-align:center; }
+.pcb:active{transform:scale(.96)} .pcb:disabled{opacity:.35;cursor:not-allowed}
+.pcb.start{background:var(--green);color:#000} .pcb.stop{background:var(--border);color:var(--muted);border:1px solid var(--muted)}
+.pcb.reset{background:var(--warn);color:#000}  .pcb.ff{background:var(--accent);color:#000}
+.pcb.ff.off{background:var(--border);color:var(--muted);border:1px solid var(--border)}
+
+.inds { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.ind { background:#070b06; border:1px solid var(--border); border-radius:5px; padding:7px; text-align:center; }
+.ind-lb { font-size:9px; color:var(--muted); margin-bottom:2px; }
+.ind-vl { font-size:14px; font-family:var(--mono); color:var(--accent); }
+
+.info-box { background:#070b06; border:1px solid var(--border); border-radius:5px; padding:10px; font-size:10px; color:var(--muted); line-height:1.7; }
+.info-box strong { color:var(--accent); }
+
+.leg { display:flex; align-items:center; gap:4px; font-size:10px; color:var(--muted); }
+.leg-ln { width:14px; height:3px; border-radius:2px; }
+.legs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:5px; }
+
+.stat-nm { font-family:var(--mono); font-size:11px; color:var(--muted); }
+.stat-vl { font-family:var(--mono); font-size:13px; font-weight:700; }
+.stat-un { font-size:10px; color:var(--muted); }
+
+::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:var(--bg)} ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- ═══ PC ═══ -->
+<div id="pc">
+  <div id="pc-hdr">
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <h1>🌿 CALDEIRA A BIOMASSA — CAROÇO DE AÇAÍ</h1>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.5px">
+        Iderlan Freitas &nbsp;·&nbsp; Engenheiro Eletricista
+      </span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span style="display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px">
+        <span class="dot-blink" id="pc-dot"></span>
+        <span id="pc-state" style="color:var(--muted)">Parado</span>
+      </span>
+      <span class="tag tag-off" id="pc-ff-badge">FF: OFF</span>
+    </div>
+  </div>
+
+  <div id="pc-body">
+
+    <!-- LEFT -->
+    <div class="pc-col left">
+
+      <div>
+        <div class="grp-title">🌿 Alimentação de Biomassa</div>
+        <div class="sl-row">
+          <div class="sl-hd"><span class="sl-nm">Vazão Rosca (kg/h)</span><span class="sl-vl" id="pc-v-feed">200</span></div>
+          <input type="range" class="pc bio" id="pc-sl-feed" min="50" max="500" value="200">
+        </div>
+        <div class="sl-row">
+          <div class="sl-hd"><span class="sl-nm">Umidade Caroço (%)</span><span class="sl-vl" id="pc-v-moist">15</span></div>
+          <input type="range" class="pc bio" id="pc-sl-moist" min="8" max="35" value="15">
+        </div>
+        <div class="sl-row">
+          <div class="sl-hd"><span class="sl-nm">Granulometria (mm)</span><span class="sl-vl" id="pc-v-gran">12</span></div>
+          <input type="range" class="pc bio" id="pc-sl-gran" min="5" max="30" value="12">
+        </div>
+      </div>
+
+      <div>
+        <div class="grp-title">💨 Ar de Combustão</div>
+        <div class="sl-row">
+          <div class="sl-hd"><span class="sl-nm">Ar Primário — FD Fan (%)</span><span class="sl-vl" id="pc-v-air1">48</span></div>
+          <input type="range" class="pc air2" id="pc-sl-air1" min="20" max="100" value="48">
+        </div>
+        <div class="sl-row">
+          <div class="sl-hd"><span class="sl-nm">Ar Secundário (%)</span><span class="sl-vl" id="pc-v-air2">18</span></div>
+          <input type="range" class="pc air2" id="pc-sl-air2" min="0" max="60" value="18">
+        </div>
+        <div class="sl-row">
+          <div class="sl-hd"><span class="sl-nm">Lambda Setpoint (λ)</span><span class="sl-vl" id="pc-v-lambda">1.35</span></div>
+          <input type="range" class="pc air2" id="pc-sl-lambda" min="1.05" max="2.0" step="0.05" value="1.35">
+        </div>
+      </div>
+
+      <div>
+        <div class="grp-title">🌡 Controle de Vapor</div>
+        <div class="sl-row">
+          <div class="sl-hd"><span class="sl-nm">Setpoint Vapor (°C)</span><span class="sl-vl" id="pc-v-sp">180</span></div>
+          <input type="range" class="pc" id="pc-sl-sp" min="120" max="260" value="180">
+        </div>
+        <div class="sl-row">
+          <div class="sl-hd"><span class="sl-nm">Vazão Água (kg/s)</span><span class="sl-vl" id="pc-v-flow">40</span></div>
+          <input type="range" class="pc wtr" id="pc-sl-flow" min="10" max="100" value="40">
+        </div>
+        <div class="sl-row">
+          <div class="sl-hd"><span class="sl-nm">Temp. Água Entrada (°C)</span><span class="sl-vl" id="pc-v-cwt">40</span></div>
+          <input type="range" class="pc wtr" id="pc-sl-cwt" min="20" max="90" value="40">
+        </div>
+      </div>
+
+    </div><!-- /left -->
+
+    <!-- CENTER -->
+    <div id="pc-center">
+      <div id="pc-pid-wrap">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">P&amp;ID — Caldeira Biomassa Caroço de Açaí</div>
+        <canvas id="pc-pid" style="width:100%;height:270px;border-radius:6px;background:#070b06;border:1px solid var(--border)"></canvas>
+      </div>
+      <div id="pc-sbar">
+        <div><span class="stat-nm">Vapor: </span><span class="stat-vl" id="pc-s-temp" style="color:var(--steam)">--</span><span class="stat-un"> °C</span></div>
+        <div><span class="stat-nm">SP: </span><span class="stat-vl" id="pc-s-sp">180</span><span class="stat-un"> °C</span></div>
+        <div><span class="stat-nm">Rosca: </span><span class="stat-vl" id="pc-s-feed" style="color:var(--biomass)">--</span><span class="stat-un"> kg/h</span></div>
+        <div><span class="stat-nm">O₂: </span><span class="stat-vl" id="pc-s-o2" style="color:var(--o2)">--</span><span class="stat-un"> %</span></div>
+        <div><span class="stat-nm">λ: </span><span class="stat-vl" id="pc-s-lam" style="color:var(--air)">--</span></div>
+        <div><span class="stat-nm">Grelha: </span><span class="stat-vl" id="pc-s-grelha" style="color:var(--warn)">--</span><span class="stat-un"> °C</span></div>
+        <div><span class="stat-nm">PID: </span><span class="stat-vl" id="pc-s-pid">0</span><span class="stat-un"> %</span></div>
+        <div><span class="stat-nm">FF: </span><span class="stat-vl" id="pc-s-ff">0</span><span class="stat-un"> %</span></div>
+      </div>
+      <div id="pc-charts">
+        <div class="legs">
+          <div class="leg"><div class="leg-ln" style="background:var(--steam)"></div>Vapor °C</div>
+          <div class="leg"><div class="leg-ln" style="background:#fff;opacity:.35;border-top:2px dashed #fff;height:0;margin-top:1px"></div>Setpoint</div>
+          <div class="leg"><div class="leg-ln" style="background:var(--biomass)"></div>Rosca kg/h</div>
+          <div class="leg"><div class="leg-ln" style="background:var(--o2)"></div>O₂ %</div>
+        </div>
+        <canvas id="pc-c1" style="width:100%;height:130px;border-radius:4px;background:#070b06;display:block;margin-bottom:10px"></canvas>
+        <div class="legs">
+          <div class="leg"><div class="leg-ln" style="background:var(--accent)"></div>Ctrl Out</div>
+          <div class="leg"><div class="leg-ln" style="background:var(--purple)"></div>Umidade (%)</div>
+          <div class="leg"><div class="leg-ln" style="background:var(--warn)"></div>Grelha °C</div>
+        </div>
+        <canvas id="pc-c2" style="width:100%;height:110px;border-radius:4px;background:#070b06;display:block"></canvas>
+      </div>
+    </div><!-- /center -->
+
+    <!-- RIGHT -->
+    <div class="pc-col right">
+
+      <div>
+        <div class="grp-title">PID — TIC-201</div>
+        <div class="sl-row">
+          <div class="sl-hd"><span class="sl-nm">Kp</span><span class="sl-vl" id="pc-v-kp">2.2</span></div>
+          <input type="range" class="pc" id="pc-sl-kp" min="0.1" max="6" step="0.1" value="2.2">
+        </div>
+        <div class="sl-row">
+          <div class="sl-hd"><span class="sl-nm">Ki (lento — biomassa)</span><span class="sl-vl" id="pc-v-ki">0.08</span></div>
+          <input type="range" class="pc" id="pc-sl-ki" min="0" max="0.3" step="0.005" value="0.08">
+        </div>
+        <div class="sl-row">
+          <div class="sl-hd"><span class="sl-nm">Kd</span><span class="sl-vl" id="pc-v-kd">0.5</span></div>
+          <input type="range" class="pc" id="pc-sl-kd" min="0" max="2" step="0.05" value="0.5">
+        </div>
+        <div class="sl-row">
+          <div class="sl-hd"><span class="sl-nm">Ganho FF (umidade)</span><span class="sl-vl" id="pc-v-ffg">1.5</span></div>
+          <input type="range" class="pc" id="pc-sl-ffg" min="0" max="4" step="0.1" value="1.5">
+        </div>
+      </div>
+
+      <div class="pc-btns">
+        <button class="pcb start" id="pc-btn-start" onclick="sim.start()">▶ Iniciar</button>
+        <button class="pcb stop"  id="pc-btn-stop"  onclick="sim.stop()" disabled>⏸ Parar</button>
+        <button class="pcb reset" onclick="sim.reset()">↺ Reiniciar</button>
+        <button class="pcb ff off" id="pc-btn-ff" onclick="sim.toggleFF()">FF: DESL.</button>
+      </div>
+
+      <!-- DEMO AUTO BUTTON -->
+      <button id="pc-btn-demo" onclick="DEMO.active?DEMO.stop():DEMO.start()"
+        style="width:100%;padding:10px;border:none;border-radius:6px;background:var(--accent);color:#000;font-family:var(--mono);font-size:12px;cursor:pointer;font-weight:700;letter-spacing:.5px;transition:all .2s">
+        ▶ Demo Auto
+      </button>
+
+      <!-- BANNER -->
+      <div id="pc-demo-banner"
+        style="background:rgba(126,200,80,.12);border:1px solid var(--accent);border-radius:6px;padding:8px 10px;font-family:var(--mono);font-size:10px;color:var(--accent);line-height:1.5;opacity:0;transform:translateY(-8px);transition:opacity .5s,transform .4s;min-height:36px">
+      </div>
+
+      <div class="inds">
+        <div class="ind"><div class="ind-lb">Modo</div><div class="ind-vl" id="pc-ind-mode" style="font-size:10px">Feedback</div></div>
+        <div class="ind"><div class="ind-lb">Estado</div><div class="ind-vl" id="pc-ind-state" style="font-size:10px;color:var(--muted)">Parado</div></div>
+        <div class="ind"><div class="ind-lb">PID Out</div><div class="ind-vl" id="pc-ind-pid">0<span style="font-size:9px;color:var(--muted)">%</span></div></div>
+        <div class="ind"><div class="ind-lb">FF Out</div><div class="ind-vl" id="pc-ind-ff">0<span style="font-size:9px;color:var(--muted)">%</span></div></div>
+        <div class="ind"><div class="ind-lb">O₂ Real</div><div class="ind-vl" id="pc-ind-o2" style="color:var(--o2)">--%</div></div>
+        <div class="ind"><div class="ind-lb">λ Real</div><div class="ind-vl" id="pc-ind-lam" style="color:var(--air)">--</div></div>
+      </div>
+
+      <div class="info-box">
+        <strong>Caroço de Açaí</strong><br>
+        PCI ≈ 18 MJ/kg (seco)<br>
+        Umidade degrada o PCI em ~0.3 MJ/kg por % de H₂O<br><br>
+        <strong>Feed Forward aqui</strong> antecipa variação de <strong>umidade</strong> — a principal perturbação da biomassa sólida. Quando umidade sobe, o FF aumenta a dosagem antes da temperatura cair.<br><br>
+        <strong>λ ideal:</strong> 1.2 – 1.5 (excesso de ar controlado pelo O₂ nos gases)
+      </div>
+
+    </div><!-- /right -->
+
+  </div>
+</div><!-- /pc -->
+
+
+<!-- ═══ MOBILE ═══ -->
+<div id="mob">
+  <div id="mob-hdr">
+    <div style="display:flex;flex-direction:column;gap:1px">
+      <h1>🌿 CALDEIRA AÇAÍ — BIOMASSA</h1>
+      <span style="font-family:var(--mono);font-size:9px;color:var(--muted)">Iderlan Freitas · Eng. Eletricista</span>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <span class="dot-blink" id="mob-dot"></span>
+      <span class="tag tag-off" id="mob-ff-badge">FF: OFF</span>
+    </div>
+  </div>
+
+  <div class="mob-sec" style="padding:10px">
+    <div class="mob-sec-title">P&amp;ID — Tempo Real</div>
+    <canvas id="mob-pid" style="width:100%;height:230px;border-radius:8px;background:#070b06;border:1px solid var(--border)"></canvas>
+  </div>
+
+  <div id="mob-pills">
+    <div class="pill"><span>Vapor</span><span id="mob-s-temp" style="color:var(--steam)">--°C</span></div>
+    <div class="pill"><span>SP</span><span id="mob-s-sp">180°C</span></div>
+    <div class="pill"><span>Rosca</span><span id="mob-s-feed" style="color:var(--biomass)">--kg/h</span></div>
+    <div class="pill"><span>O₂</span><span id="mob-s-o2" style="color:var(--o2)">--%</span></div>
+    <div class="pill"><span>λ</span><span id="mob-s-lam" style="color:var(--air)">--</span></div>
+    <div class="pill"><span>Grelha</span><span id="mob-s-grelha" style="color:var(--warn)">--°C</span></div>
+  </div>
+
+  <div class="mob-sec" style="padding:10px">
+    <div class="legs" style="margin-bottom:5px">
+      <div class="leg"><div class="leg-ln" style="background:var(--steam)"></div>Vapor</div>
+      <div class="leg"><div class="leg-ln" style="background:rgba(255,255,255,.4)"></div>SP</div>
+      <div class="leg"><div class="leg-ln" style="background:var(--biomass)"></div>Rosca</div>
+      <div class="leg"><div class="leg-ln" style="background:var(--o2)"></div>O₂</div>
+    </div>
+    <canvas id="mob-c1" style="width:100%;height:140px;border-radius:6px;background:#070b06;display:block;margin-bottom:10px"></canvas>
+    <div class="legs" style="margin-bottom:5px">
+      <div class="leg"><div class="leg-ln" style="background:var(--accent)"></div>Ctrl</div>
+      <div class="leg"><div class="leg-ln" style="background:var(--purple)"></div>Umidade</div>
+      <div class="leg"><div class="leg-ln" style="background:var(--warn)"></div>Grelha</div>
+    </div>
+    <canvas id="mob-c2" style="width:100%;height:100px;border-radius:6px;background:#070b06;display:block"></canvas>
+  </div>
+
+  <div class="mob-tabs" id="mob-tabs">
+    <div class="mob-tab active" onclick="mobTab(0)">Biomassa</div>
+    <div class="mob-tab" onclick="mobTab(1)">Ar / λ</div>
+    <div class="mob-tab" onclick="mobTab(2)">Vapor</div>
+    <div class="mob-tab" onclick="mobTab(3)">PID</div>
+  </div>
+
+  <!-- TAB 0 -->
+  <div class="mob-tc active mob-sec" id="mob-tab-0">
+    <div class="sl-row">
+      <div class="sl-hd"><span class="sl-nm">Vazão Rosca (kg/h)</span><span class="sl-vl" id="mob-v-feed">200</span></div>
+      <input type="range" class="mob bio" id="mob-sl-feed" min="50" max="500" value="200">
+    </div>
+    <div class="sl-row">
+      <div class="sl-hd"><span class="sl-nm">Umidade Caroço (%)</span><span class="sl-vl" id="mob-v-moist">15</span></div>
+      <input type="range" class="mob bio" id="mob-sl-moist" min="8" max="35" value="15">
+    </div>
+    <div class="sl-row">
+      <div class="sl-hd"><span class="sl-nm">Granulometria (mm)</span><span class="sl-vl" id="mob-v-gran">12</span></div>
+      <input type="range" class="mob bio" id="mob-sl-gran" min="5" max="30" value="12">
+    </div>
+  </div>
+
+  <!-- TAB 1 -->
+  <div class="mob-tc mob-sec" id="mob-tab-1">
+    <div class="sl-row">
+      <div class="sl-hd"><span class="sl-nm">Ar Primário FD Fan (%)</span><span class="sl-vl" id="mob-v-air1">48</span></div>
+      <input type="range" class="mob air2" id="mob-sl-air1" min="20" max="100" value="48">
+    </div>
+    <div class="sl-row">
+      <div class="sl-hd"><span class="sl-nm">Ar Secundário (%)</span><span class="sl-vl" id="mob-v-air2">18</span></div>
+      <input type="range" class="mob air2" id="mob-sl-air2" min="0" max="60" value="18">
+    </div>
+    <div class="sl-row">
+      <div class="sl-hd"><span class="sl-nm">Lambda Setpoint (λ)</span><span class="sl-vl" id="mob-v-lambda">1.35</span></div>
+      <input type="range" class="mob air2" id="mob-sl-lambda" min="1.05" max="2.0" step="0.05" value="1.35">
+    </div>
+    <div class="info-box" style="margin-top:10px">
+      <strong>λ &lt; 1.2</strong> → combustão incompleta, fumaça preta<br>
+      <strong>λ = 1.2–1.5</strong> → zona ideal, O₂ = 3–6%<br>
+      <strong>λ &gt; 1.8</strong> → excesso de ar, perda de eficiência
+    </div>
+  </div>
+
+  <!-- TAB 2 -->
+  <div class="mob-tc mob-sec" id="mob-tab-2">
+    <div class="sl-row">
+      <div class="sl-hd"><span class="sl-nm">Setpoint Vapor (°C)</span><span class="sl-vl" id="mob-v-sp">180</span></div>
+      <input type="range" class="mob" id="mob-sl-sp" min="120" max="260" value="180">
+    </div>
+    <div class="sl-row">
+      <div class="sl-hd"><span class="sl-nm">Vazão Água (kg/s)</span><span class="sl-vl" id="mob-v-flow">40</span></div>
+      <input type="range" class="mob wtr" id="mob-sl-flow" min="10" max="100" value="40">
+    </div>
+    <div class="sl-row">
+      <div class="sl-hd"><span class="sl-nm">Temp. Água Entrada (°C)</span><span class="sl-vl" id="mob-v-cwt">40</span></div>
+      <input type="range" class="mob wtr" id="mob-sl-cwt" min="20" max="90" value="40">
+    </div>
+  </div>
+
+  <!-- TAB 3 -->
+  <div class="mob-tc mob-sec" id="mob-tab-3">
+    <div class="sl-row">
+      <div class="sl-hd"><span class="sl-nm">Kp</span><span class="sl-vl" id="mob-v-kp">2.2</span></div>
+      <input type="range" class="mob" id="mob-sl-kp" min="0.1" max="6" step="0.1" value="2.2">
+    </div>
+    <div class="sl-row">
+      <div class="sl-hd"><span class="sl-nm">Ki (lento — biomassa)</span><span class="sl-vl" id="mob-v-ki">0.08</span></div>
+      <input type="range" class="mob" id="mob-sl-ki" min="0" max="0.3" step="0.005" value="0.08">
+    </div>
+    <div class="sl-row">
+      <div class="sl-hd"><span class="sl-nm">Kd</span><span class="sl-vl" id="mob-v-kd">0.5</span></div>
+      <input type="range" class="mob" id="mob-sl-kd" min="0" max="2" step="0.05" value="0.5">
+    </div>
+    <div class="sl-row">
+      <div class="sl-hd"><span class="sl-nm">Ganho FF (umidade)</span><span class="sl-vl" id="mob-v-ffg">1.5</span></div>
+      <input type="range" class="mob" id="mob-sl-ffg" min="0" max="4" step="0.1" value="1.5">
+    </div>
+    <div class="info-box" style="margin-top:10px">
+      <strong>Biomassa tem resposta lenta!</strong><br>
+      Ki pequeno evita integral windup.<br>
+      Kd maior ajuda a antecipar variações de temperatura na grelha.
+    </div>
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div id="mob-bar" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr">
+    <button class="mbb s-start" id="mob-btn-start" onclick="sim.start()"><span class="ic">▶</span><span class="lb">Iniciar</span></button>
+    <button class="mbb s-stop"  id="mob-btn-stop"  onclick="sim.stop()"  disabled style="opacity:.4"><span class="ic">⏸</span><span class="lb">Parar</span></button>
+    <button class="mbb s-reset" onclick="sim.reset()"><span class="ic">↺</span><span class="lb">Reset</span></button>
+    <button class="mbb s-ff off" id="mob-btn-ff" onclick="sim.toggleFF()"><span class="ic">⚡</span><span class="lb" id="mob-ff-lbl">FF: OFF</span></button>
+    <button class="mbb" id="mob-btn-demo" onclick="DEMO.active?DEMO.stop():DEMO.start()" style="border-right:none"><span class="ic" style="color:var(--accent)">🎬</span><span class="lb" style="color:var(--accent)">Demo</span></button>
+  </div>
+</div><!-- /mob -->
+
+<!-- DEMO BANNER mobile — flutua acima da bottom bar -->
+<div id="mob-demo-banner"
+  style="position:fixed;bottom:76px;left:10px;right:10px;z-index:99;
+         background:rgba(10,15,8,.96);border:1px solid var(--accent);
+         border-radius:8px;padding:10px 14px;font-family:var(--mono);
+         font-size:11px;color:var(--accent);line-height:1.6;
+         opacity:0;transform:translateY(8px);
+         transition:opacity .5s,transform .4s;pointer-events:none">
+</div>
+
+
+<script>
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+const S = {
+  running:false, ffOn:false, t:0,
+  steamTemp:25, grateTemp:200, o2:5, lambda:1.35,
+  feedRate:200,     // atual rosca
+  pidOut:0, ffOut:0, ficOut:0,
+  integral:0, prevErr:0, ficInt:0,
+  // params
+  feedSP:200, moist:15, gran:12,
+  air1:48, air2:18, lambdaSP:1.35,
+  sp:180, flow:40, cwt:40,
+  kp:2.2, ki:0.08, kd:0.5, ffg:1.5,
+};
+
+const HIST=180;
+const H={ temp:[],sp:[],feed:[],o2h:[],ctrl:[],moist:[],grate:[] };
+for(const k in H) H[k]=new Array(HIST).fill(null);
+const push=(a,v)=>{a.shift();a.push(v);};
+
+// ══════════════════════════════════════════════
+// WIRE SLIDERS
+// ══════════════════════════════════════════════
+function wire(pcId,mobId,key,dec){
+  const pc=document.getElementById(pcId);
+  const mb=document.getElementById(mobId);
+  function upd(v){
+    S[key]=parseFloat(v);
+    const fmt=dec!=null?parseFloat(v).toFixed(dec):v;
+    const pv=document.getElementById(pcId.replace('sl-','v-'));
+    const mv=document.getElementById(mobId.replace('sl-','v-'));
+    if(pv) pv.textContent=fmt;
+    if(mv) mv.textContent=fmt;
+    if(pc) pc.value=v;
+    if(mb) mb.value=v;
+  }
+  if(pc)  pc.addEventListener('input', e=>upd(e.target.value));
+  if(mb)  mb.addEventListener('input', e=>upd(e.target.value));
+}
+wire('pc-sl-feed',  'mob-sl-feed',  'feedSP',   0);
+wire('pc-sl-moist', 'mob-sl-moist', 'moist',    0);
+wire('pc-sl-gran',  'mob-sl-gran',  'gran',     0);
+wire('pc-sl-air1',  'mob-sl-air1',  'air1',     0);
+wire('pc-sl-air2',  'mob-sl-air2',  'air2',     0);
+wire('pc-sl-lambda','mob-sl-lambda','lambdaSP', 2);
+wire('pc-sl-sp',    'mob-sl-sp',    'sp',       0);
+wire('pc-sl-flow',  'mob-sl-flow',  'flow',     0);
+wire('pc-sl-cwt',   'mob-sl-cwt',   'cwt',      0);
+wire('pc-sl-kp',    'mob-sl-kp',    'kp',       1);
+wire('pc-sl-ki',    'mob-sl-ki',    'ki',       3);
+wire('pc-sl-kd',    'mob-sl-kd',    'kd',       2);
+wire('pc-sl-ffg',   'mob-sl-ffg',   'ffg',      1);
+
+// ══════════════════════════════════════════════
+// SIM CONTROLLER
+// ══════════════════════════════════════════════
+const sim={
+  start(){
+    S.running=true;
+    _btn('pc-btn-start',true); _btn('mob-btn-start',true);
+    _btnEn('pc-btn-stop',true); _btnEnMob('mob-btn-stop',true);
+    this._setState('Rodando',true);
+  },
+  stop(){
+    S.running=false;
+    _btn('pc-btn-start',false); _btn('mob-btn-start',false);
+    _btnEn('pc-btn-stop',false); _btnEnMob('mob-btn-stop',false);
+    this._setState('Parado',false);
+  },
+  reset(){
+    this.stop();
+    S.t=0; S.steamTemp=25; S.grateTemp=200; S.o2=5;
+    S.integral=0; S.prevErr=0; S.ficInt=0;
+    S.pidOut=0; S.ffOut=0; S.ficOut=0; S.feedRate=S.feedSP;
+    for(const k in H) H[k].fill(null);
+    this._upd();
+  },
+  toggleFF(){
+    S.ffOn=!S.ffOn;
+    const on=S.ffOn;
+    const pb=document.getElementById('pc-btn-ff');
+    if(pb){pb.textContent=on?'FF: LIG.':'FF: DESL.'; pb.className='pcb ff'+(on?'':' off');}
+    const pbg=document.getElementById('pc-ff-badge');
+    if(pbg){pbg.textContent=on?'FF: ON':'FF: OFF'; pbg.className='tag '+(on?'tag-on':'tag-off');}
+    const pm=document.getElementById('pc-ind-mode');
+    if(pm){pm.textContent=on?'FF + FB':'Feedback'; pm.style.color=on?'var(--accent)':'var(--text)';}
+    const mb=document.getElementById('mob-btn-ff');
+    if(mb) mb.className='mbb s-ff'+(on?'':' off');
+    const ml=document.getElementById('mob-ff-lbl');
+    if(ml) ml.textContent=on?'FF: ON':'FF: OFF';
+    const mbg=document.getElementById('mob-ff-badge');
+    if(mbg){mbg.textContent=on?'FF: ON':'FF: OFF'; mbg.className='tag '+(on?'tag-on':'tag-off');}
+  },
+  _setState(txt,run){
+    ['pc-dot','mob-dot'].forEach(id=>{const d=document.getElementById(id);if(d)d.className='dot-blink'+(run?' run':'');});
+    const st=document.getElementById('pc-state'); if(st){st.textContent=txt;st.style.color=run?'var(--green)':'var(--muted)';}
+    const si=document.getElementById('pc-ind-state'); if(si){si.textContent=txt;si.style.color=run?'var(--green)':'var(--muted)';}
+  },
+  _upd(){
+    const T=S.steamTemp.toFixed(1);
+    const G=S.grateTemp.toFixed(0);
+    const F=S.feedRate.toFixed(0);
+    const O=S.o2.toFixed(1);
+    const L=S.lambda.toFixed(2);
+    set('pc-s-temp',T); set('pc-s-sp',S.sp); set('pc-s-feed',F);
+    set('pc-s-o2',O); set('pc-s-lam',L); set('pc-s-grelha',G);
+    set('pc-s-pid',S.pidOut.toFixed(1)); set('pc-s-ff',S.ffOut.toFixed(1));
+    set('pc-ind-pid',S.pidOut.toFixed(1)+'%'); set('pc-ind-ff',S.ffOut.toFixed(1)+'%');
+    set('pc-ind-o2',O+'%'); set('pc-ind-lam',L);
+    set('mob-s-temp',T+'°C'); set('mob-s-sp',S.sp+'°C');
+    set('mob-s-feed',F+'kg/h'); set('mob-s-o2',O+'%');
+    set('mob-s-lam',L); set('mob-s-grelha',G+'°C');
+  }
+};
+
+function set(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
+function _btn(id,dis){const b=document.getElementById(id);if(b)b.disabled=dis;}
+function _btnEn(id,en){const b=document.getElementById(id);if(b){b.disabled=!en;}}
+function _btnEnMob(id,en){const b=document.getElementById(id);if(b){b.disabled=!en;b.style.opacity=en?'1':'.4';}}
+
+// ══════════════════════════════════════════════
+// SIMULATION
+// ══════════════════════════════════════════════
+const DT=0.1;
+
+function simStep(){
+  if(!S.running) return;
+  S.t+=DT;
+
+  // PCI efetivo (MJ/kg) — umidade degrada
+  const pci=18 - (S.moist-8)*0.3;
+  // granulometria afeta combustão: menor = queima mais rápida
+  const granFactor = 1 - (S.gran-5)/60;
+
+  // Feed forward: umidade elevada → aumentar dosagem antecipadamente
+  const moistDev=(S.moist-15)/15;
+  S.ffOut = S.ffOn ? S.ffg * moistDev * 30 : 0;
+
+  // Erro temperatura vapor
+  const err=S.sp-S.steamTemp;
+  S.integral=Math.max(-150,Math.min(150,S.integral+err*DT));
+  const deriv=(err-S.prevErr)/DT;
+  S.prevErr=err;
+  S.pidOut=Math.max(0,Math.min(100, S.kp*err + S.ki*S.integral + S.kd*deriv));
+
+  // Demanda total de combustível (% de capacidade máx)
+  const demand=Math.max(0,Math.min(100, S.pidOut + S.ffOut));
+
+  // Rosca (resposta lenta — inércia da biomassa sólida)
+  const feedTarget = S.feedSP * (demand/100) * 1.5 + 80;
+  const feedErr = feedTarget - S.feedRate;
+  S.ficInt += feedErr*DT;
+  S.ficOut = Math.max(0, Math.min(600, 1.1*feedErr + 0.15*S.ficInt));
+  // lag biomassa — resposta lenta (tau grande)
+  S.feedRate += (S.ficOut - S.feedRate) * DT * 0.08;
+  S.feedRate = Math.max(0, Math.min(600, S.feedRate));
+
+  // Grelha — temperatura (dinâmica lenta)
+  const heatGrate = S.feedRate * pci * granFactor * 0.004;
+  const airCool = (S.air1/100) * 1.2;
+  S.grateTemp += (heatGrate - airCool - (S.grateTemp-150)*0.003) * DT;
+  S.grateTemp = Math.max(150, Math.min(1100, S.grateTemp));
+
+  // Lambda / O2 — física correta
+  // Ar estequiométrico do caroço de açaí: ~5.5 kg_ar/kg_biomassa (base seca)
+  // feedRate em kg/h → ar estequiométrico em kg_ar/h
+  const arStoich = S.feedRate * 5.5;
+  // Ar real fornecido: slider air1+air2 em % da capacidade máx do ventilador
+  // Ventilador máx ≈ 3000 kg_ar/h para planta de 500 kg/h biomassa
+  const arReal = (S.air1 + S.air2) / 100 * 3000;
+  S.lambda = arStoich > 0 ? Math.max(0.85, Math.min(3.5, arReal / arStoich)) : 1.3;
+  // O2 nos gases: relação empírica válida para λ 0.9–2.5
+  // O2% ≈ 21 * (1 - 1/λ)  →  λ=1.0: 0%  λ=1.3: 4.8%  λ=1.5: 7%  λ=2.0: 10.5%
+  S.o2 = S.lambda >= 1
+    ? Math.max(0, Math.min(18, 21 * (1 - 1 / S.lambda)))
+    : 0; // combustão incompleta — O2 consumido
+
+  // Caldeira — temperatura vapor (dinâmica muito lenta)
+  const heatInput = S.feedRate * pci * granFactor * 0.002 * Math.min(1, 1/Math.max(0.8,S.lambda));
+  const load = S.flow * 0.35 + S.cwt * 0.55;
+  const dTemp = (heatInput - load - (S.steamTemp-20)*0.04) * DT * 0.07;
+  S.steamTemp = Math.max(20, Math.min(285, S.steamTemp + dTemp));
+
+  // History
+  push(H.temp,  S.steamTemp);
+  push(H.sp,    S.sp);
+  push(H.feed,  S.feedRate/6);   // scale to ~0-100
+  push(H.o2h,   S.o2*5);         // scale to ~0-100
+  push(H.ctrl,  demand);
+  push(H.moist, S.moist * 2.5);  // scale
+  push(H.grate, (S.grateTemp/1100)*100);
+
+  sim._upd();
+}
+
+// ══════════════════════════════════════════════
+// PARTICLES
+// ══════════════════════════════════════════════
+const wPtcl  = Array.from({length:8}, ()=>({t:Math.random()}));
+const sPtcl  = Array.from({length:8}, ()=>({t:Math.random()}));
+const bPtcl  = Array.from({length:14},()=>({t:Math.random(), oy:Math.random()*6-3, sz:2+Math.random()*2.5}));
+const smkPtcl= Array.from({length:12},()=>({t:Math.random(), ox:Math.random()*10-5}));
+const airPtcl= Array.from({length:6}, ()=>({t:Math.random()}));
+const drumSteamPtcl = Array.from({length:22}, ()=>({
+  t:      Math.random(),
+  ox:     (Math.random()-0.5)*60,
+  sz:     2+Math.random()*5,
+  wobble: (Math.random()-0.5)*0.04,
+}));// açaí fruit falling into silo — purple berries
+const acaiPtcl= Array.from({length:18},()=>({
+  t: Math.random(),
+  ox: Math.random()*0.7+0.15,  // horizontal spread within silo (0..1)
+  sz: 2.5+Math.random()*3,
+  // color: mix of deep purple (#4a0070) and dark red-purple (#6b1a3a)
+  r: Math.floor(60+Math.random()*50),
+  g: Math.floor(5+Math.random()*20),
+  b: Math.floor(80+Math.random()*60),
+}));
+
+// ══════════════════════════════════════════════
+// P&ID DRAW
+// ══════════════════════════════════════════════
+function drawPID(cv){
+  if(!cv._w) return;
+  const ctx=cv.getContext('2d');
+  const W=cv._w, H=cv._h;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#070b06'; ctx.fillRect(0,0,W,H);
+  // grid
+  ctx.strokeStyle='#0e1a0a'; ctx.lineWidth=0.5;
+  for(let x=0;x<W;x+=36){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=36){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  const heat=Math.max(0,Math.min(1,(S.grateTemp-150)/950));
+  const fspd=S.running?(S.flow/60)*0.013:0;
+  const bspd=S.running?(S.feedRate/300)*0.012:0;
+  const sspd=S.running?(S.feedRate/300)*0.016:0;
+  const aspd=S.running?(S.air1/80)*0.014:0;
+
+  // ── Layout ──
+  // Furnace (left half)
+  const fX=W*0.18, fY=H*0.18, fW=W*0.28, fH=H*0.60;
+  // Drum (right, connected via tubes)
+  const dX=W*0.54, dY=H*0.20, dW=W*0.30, dH=H*0.42;
+  // Silo top
+  const siloX=W*0.05, siloY=H*0.04, siloW=W*0.10, siloH=H*0.28;
+  // Screw conveyor
+  const screwY=H*0.35;
+  // FD Fan
+  const fanX=W*0.05, fanY=H*0.82;
+  // Stack
+  const stackX=W*0.28, stackY=H*0.02;
+  // Water in
+  const wY=H*0.52;
+
+  // ── SILO ──
+  ctx.fillStyle='#1a2510'; ctx.strokeStyle='#7ec850'; ctx.lineWidth=1.5;
+  ctx.beginPath();
+  ctx.moveTo(siloX,siloY); ctx.lineTo(siloX+siloW,siloY);
+  ctx.lineTo(siloX+siloW,siloY+siloH*0.7);
+  ctx.lineTo(siloX+siloW*0.6,siloY+siloH);
+  ctx.lineTo(siloX+siloW*0.4,siloY+siloH);
+  ctx.lineTo(siloX,siloY+siloH*0.7);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+
+  // açaí filling level — dark purple-red mass inside silo
+  const fillTop = siloY + siloH*0.10;
+  const fillMid = siloY + siloH*0.68;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(siloX+1,fillTop);
+  ctx.lineTo(siloX+siloW-1,fillTop);
+  ctx.lineTo(siloX+siloW-1,siloY+siloH*0.7-1);
+  ctx.lineTo(siloX+siloW*0.6-1,siloY+siloH-1);
+  ctx.lineTo(siloX+siloW*0.4+1,siloY+siloH-1);
+  ctx.lineTo(siloX+1,siloY+siloH*0.7-1);
+  ctx.closePath();
+  ctx.clip();
+  // gradient: purple-red top (frutos frescos) → dark brown bottom (caroços secos)
+  const siloGrad = ctx.createLinearGradient(0,fillTop,0,siloY+siloH);
+  siloGrad.addColorStop(0,   'rgba(90, 10,110, 0.85)');   // roxo açaí fresco
+  siloGrad.addColorStop(0.45,'rgba(60, 10, 70, 0.80)');
+  siloGrad.addColorStop(0.70,'rgba(55, 22,  8, 0.88)');   // transição
+  siloGrad.addColorStop(1,   'rgba(45, 20,  5, 0.95)');   // marrom escuro caroço seco
+  ctx.fillStyle=siloGrad; ctx.fillRect(siloX,fillTop,siloW,siloH);
+  ctx.restore();
+
+  // açaí berries falling INTO the silo from top
+  const fallSpd = S.running ? 0.008 : 0.003; // always falling slowly
+  acaiPtcl.forEach(p=>{
+    p.t += fallSpd + Math.random()*0.001;
+    if(p.t > 1) p.t -= 1;
+    // x spreads within silo width
+    const px = siloX + siloW*p.ox;
+    // y: falls from above silo top to fill level
+    const py = siloY - p.sz*2 + (fillTop - (siloY - p.sz*2)) * p.t;
+    if(py > fillTop) return; // hide once inside fill
+    const alpha = 0.7 + 0.3*Math.sin(p.t*Math.PI);
+    // draw açaí berry: small circle with highlight
+    ctx.beginPath(); ctx.arc(px, py, p.sz, 0, Math.PI*2);
+    ctx.fillStyle=`rgba(${p.r},${p.g},${p.b},${alpha})`; ctx.fill();
+    // tiny specular highlight
+    ctx.beginPath(); ctx.arc(px-p.sz*0.28, py-p.sz*0.28, p.sz*0.32, 0, Math.PI*2);
+    ctx.fillStyle=`rgba(180,100,200,${alpha*0.5})`; ctx.fill();
+  });
+
+  // label silo
+  ctx.fillStyle='#7ec850'; ctx.font=`bold ${W*.016}px Inter`; ctx.textAlign='center';
+  ctx.fillText('Silo',siloX+siloW/2, siloY+siloH*0.38);
+  ctx.fillStyle='rgba(200,160,255,0.8)'; ctx.font=`${W*.012}px Inter`;
+  ctx.fillText('Açaí',siloX+siloW/2, siloY+siloH*0.52);
+  ctx.fillStyle='rgba(120,70,20,0.9)';
+  ctx.fillText('Caroço',siloX+siloW/2, siloY+siloH*0.65);
+
+  // ── SCREW CONVEYOR ──
+  const screwX0=siloX+siloW*0.5, screwX1=fX+fW*0.15;
+  ctx.strokeStyle='#5a6a40'; ctx.lineWidth=10; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(screwX0,siloY+siloH); ctx.lineTo(screwX1,screwY); ctx.stroke();
+  ctx.lineCap='butt';
+  // biomass particles — dark brown (caroço seco saindo)
+  bPtcl.forEach(p=>{
+    if(S.running){p.t+=bspd; if(p.t>1)p.t-=1;}
+    const px=screwX0+(screwX1-screwX0)*p.t;
+    const py=(siloY+siloH)+(screwY-(siloY+siloH))*p.t+p.oy;
+    // color transitions from dark purple (silo exit) to dark brown (combustão)
+    const mix = p.t; // 0=silo, 1=furnace
+    const r = Math.floor(70 + mix*60);   // 70→130
+    const g = Math.floor(10 + mix*28);   // 10→38
+    const b = Math.floor(60 - mix*55);   // 60→5
+    ctx.beginPath(); ctx.arc(px,py,p.sz,0,Math.PI*2);
+    ctx.fillStyle=`rgba(${r},${g},${b},0.9)`; ctx.fill();
+    // tiny texture dot
+    ctx.beginPath(); ctx.arc(px+p.sz*0.3,py-p.sz*0.3,p.sz*0.25,0,Math.PI*2);
+    ctx.fillStyle=`rgba(${r+30},${g+10},${b+5},0.5)`; ctx.fill();
+  });
+  // label rosca
+  ctx.fillStyle='#7a6a30'; ctx.font=`${W*.012}px Inter`; ctx.textAlign='left';
+  ctx.fillText('Rosca',screwX0-5,screwY-22);
+  ctx.fillText(`${S.feedRate.toFixed(0)} kg/h`,screwX0-5,screwY-10);
+
+  // ── FD FAN ──
+  ctx.strokeStyle='#a8d8ea'; ctx.fillStyle='#0a1520'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.arc(fanX+18,fanY,16,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  // fan blades animated
+  const fanAngle = S.running ? (Date.now()/300)*(S.air1/60) : 0;
+  for(let i=0;i<4;i++){
+    const a=fanAngle+i*Math.PI/2;
+    ctx.beginPath();
+    ctx.moveTo(fanX+18,fanY);
+    ctx.arc(fanX+18,fanY,12,a,a+0.7);
+    ctx.fillStyle='rgba(168,216,234,0.5)'; ctx.fill();
+  }
+  ctx.fillStyle='#a8d8ea'; ctx.font=`8px Inter`; ctx.textAlign='center';
+  ctx.fillText('FD',fanX+18,fanY-1); ctx.fillText('Fan',fanX+18,fanY+8);
+
+  // air duct up from fan to furnace bottom
+  ctx.strokeStyle='#a8d8ea'; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.moveTo(fanX+18,fanY-16); ctx.lineTo(fanX+18,fY+fH+8);
+  ctx.lineTo(fX+fW*0.5,fY+fH+8); ctx.lineTo(fX+fW*0.5,fY+fH); ctx.stroke();
+  // air particles
+  airPtcl.forEach(p=>{
+    if(S.running){p.t+=aspd; if(p.t>1)p.t-=1;}
+    const path=[
+      [fanX+18,fanY-16],[fanX+18,fY+fH+8],[fX+fW*0.5,fY+fH+8],[fX+fW*0.5,fY+fH]
+    ];
+    // simple interpolation
+    const tot=3, d=p.t*tot;
+    let px,py;
+    if(d<1){px=path[0][0];py=path[0][1]+(path[1][1]-path[0][1])*d;}
+    else if(d<2){const f=d-1;px=path[1][0]+(path[2][0]-path[1][0])*f;py=path[1][1]+(path[2][1]-path[1][1])*f;}
+    else{const f=d-2;px=path[2][0]+(path[3][0]-path[2][0])*f;py=path[2][1]+(path[3][1]-path[2][1])*f;}
+    ctx.beginPath(); ctx.arc(px,py,2.5,0,Math.PI*2);
+    ctx.fillStyle=`rgba(168,216,234,${0.4+0.4*Math.sin(p.t*Math.PI*2)})`; ctx.fill();
+  });
+  ctx.fillStyle='#5a8090'; ctx.font=`${W*.012}px Inter`; ctx.textAlign='center';
+  ctx.fillText('Ar Primário',fanX+18,fanY+26);
+
+  // ── FURNACE / CÂMARA DE COMBUSTÃO ──
+  const furnGlow=ctx.createRadialGradient(fX+fW/2,fY+fH*0.6,fH*.05,fX+fW/2,fY+fH*0.6,fH*.6);
+  furnGlow.addColorStop(0,`rgba(255,120,20,${heat*.7})`);
+  furnGlow.addColorStop(0.5,`rgba(180,50,10,${heat*.3})`);
+  furnGlow.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=furnGlow; ctx.fillRect(fX-fW*.2,fY-fH*.1,fW*1.4,fH*1.3);
+
+  ctx.fillStyle=`rgba(30,20,10,0.85)`; ctx.strokeStyle='#5a6a40'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.roundRect?ctx.roundRect(fX,fY,fW,fH,6):ctx.rect(fX,fY,fW,fH);
+  ctx.fill(); ctx.stroke();
+
+  // GRATE (grelha)
+  const grY=fY+fH*0.70;
+  ctx.strokeStyle=`rgba(255,${Math.floor(100+heat*155)},20,${0.5+heat*.5})`; ctx.lineWidth=2;
+  for(let i=0;i<5;i++){
+    const gx=fX+fW*.1+i*(fW*.18);
+    ctx.beginPath(); ctx.moveTo(gx,grY); ctx.lineTo(gx,grY+fH*.12); ctx.stroke();
+  }
+  ctx.fillStyle='rgba(255,150,30,0.4)'; ctx.fillRect(fX+fW*.08,grY,fW*.84,fH*.12);
+  // grate label
+  ctx.fillStyle=`rgba(255,${Math.floor(100+heat*155)},20,0.8)`; ctx.font=`${W*.013}px var(--mono)`; ctx.textAlign='center';
+  ctx.fillText(`Grelha ${S.grateTemp.toFixed(0)}°C`,fX+fW/2,grY-4);
+
+  // FLAME in furnace
+  if(S.running&&S.feedRate>30){
+    const fi=Math.min(1,S.feedRate/350);
+    for(let f=0;f<3;f++){
+      const fx2=fX+fW*(0.25+f*0.22), fy2=grY;
+      drawFlame(ctx,fx2,fy2,fi*(0.6+f*0.15),fH*0.55);
+    }
+  }
+
+  // FURNACE LABEL
+  ctx.fillStyle='rgba(200,180,100,0.8)'; ctx.font=`bold ${W*.018}px Inter`; ctx.textAlign='center';
+  ctx.fillText('Câmara',fX+fW/2,fY+fH*.22);
+  ctx.fillStyle='#7a8a6a'; ctx.font=`${W*.014}px Inter`;
+  ctx.fillText('Combustão',fX+fW/2,fY+fH*.33);
+
+  // ASH EXIT
+  ctx.strokeStyle='#8a9080'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(fX+fW*0.5,fY+fH); ctx.lineTo(fX+fW*0.5,H*.96); ctx.stroke();
+  ctx.fillStyle='#6a7060'; ctx.font=`${W*.012}px Inter`; ctx.textAlign='center';
+  ctx.fillText('Cinzas',fX+fW*0.5,H*.99);
+
+  // ── FLUE GAS → STACK ──
+  ctx.strokeStyle='#4a5540'; ctx.lineWidth=8;
+  ctx.beginPath(); ctx.moveTo(fX+fW*0.5,fY); ctx.lineTo(fX+fW*0.5,stackY+H*.10);
+  ctx.lineTo(stackX,stackY+H*.10); ctx.lineTo(stackX,stackY); ctx.stroke();
+  // smoke particles
+  smkPtcl.forEach(p=>{
+    if(S.running){p.t+=0.008*(S.feedRate/200); if(p.t>1)p.t-=1;}
+    const py=stackY-(p.t*H*.15);
+    const alpha=0.6*(1-p.t);
+    const radius=4+p.t*8;
+    ctx.beginPath(); ctx.arc(stackX+p.ox,Math.max(0,py),radius,0,Math.PI*2);
+    ctx.fillStyle=`rgba(80,90,70,${alpha})`; ctx.fill();
+  });
+  // stack
+  ctx.strokeStyle='#4a5a40'; ctx.lineWidth=3;
+  ctx.strokeRect(stackX-8,stackY,16,H*.12);
+  ctx.fillStyle='#3a4a30'; ctx.fillRect(stackX-8,stackY,16,H*.12);
+  ctx.fillStyle='#7a8a6a'; ctx.font=`${W*.012}px Inter`; ctx.textAlign='center';
+  ctx.fillText('Chaminé',stackX,stackY+H*.16);
+
+  // O2 analyzer
+  instrRect(ctx,stackX+W*.07,stackY+H*.08,'AIC','501','#80deea',W);
+  ctx.strokeStyle='#335'; ctx.lineWidth=1; ctx.setLineDash([2,3]);
+  ctx.beginPath(); ctx.moveTo(stackX+8,stackY+H*.06); ctx.lineTo(stackX+W*.07-22,stackY+H*.08); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='#80deea'; ctx.font=`${W*.013}px var(--mono)`; ctx.textAlign='center';
+  ctx.fillText(`O₂=${S.o2.toFixed(1)}%`,stackX+W*.07,stackY+H*.19);
+
+  // ── DRUM ──
+  const drumGlow=ctx.createRadialGradient(dX+dW/2,dY+dH/2,dH*.05,dX+dW/2,dY+dH/2,dH*.7);
+  drumGlow.addColorStop(0,`rgba(255,80,80,${heat*.3})`);
+  drumGlow.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=drumGlow; ctx.fillRect(dX-dW*.1,dY-dH*.1,dW*1.2,dH*1.2);
+
+  ctx.fillStyle=`rgba(120,40,20,${0.05+heat*.18})`; ctx.strokeStyle='#8899aa'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.ellipse(dX+dW*.08,dY+dH/2,dW*.08,dH/2,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillRect(dX+dW*.08,dY,dW*.84,dH); ctx.strokeRect(dX+dW*.08,dY,dW*.84,dH);
+  ctx.beginPath(); ctx.ellipse(dX+dW*.92,dY+dH/2,dW*.08,dH/2,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  // internal tubes
+  ctx.setLineDash([4,3]);
+  for(let i=0;i<4;i++){
+    const ty=dY+dH*.2+i*dH*.17;
+    ctx.strokeStyle=`rgba(79,195,247,${0.2+heat*.3})`; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(dX+dW*.15,ty); ctx.lineTo(dX+dW*.85,ty); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // ── VAPOR INTERNO DO DRUM ──
+  // clip to drum interior before drawing steam bubbles
+  ctx.save();
+  ctx.beginPath();
+  ctx.ellipse(dX+dW*.08, dY+dH/2, dW*.08, dH/2, 0, 0, Math.PI*2);
+  ctx.rect(dX+dW*.08, dY, dW*.84, dH);
+  ctx.ellipse(dX+dW*.92, dY+dH/2, dW*.08, dH/2, 0, 0, Math.PI*2);
+  ctx.clip();
+
+  // steam intensity based on temperature
+  const steamInt = Math.max(0, Math.min(1, (S.steamTemp - 60) / 200));
+
+  // ── ÁGUA COLORIDA DENTRO DO DRUM ──
+  // nível d'água: sobe com mais água entrando, cai com mais vapor saindo
+  const waterFrac = 0.55 + 0.10 * Math.sin(Date.now() / 4000) * (S.running ? 1 : 0.2);
+  const waterTopY = dY + dH * (1 - waterFrac);
+  const drumBotY  = dY + dH;
+
+  // gradiente vertical da água: azul frio no topo → azul quente/turquesa no fundo
+  const waterGrad = ctx.createLinearGradient(0, waterTopY, 0, drumBotY);
+  const waterHeat = Math.max(0, Math.min(1, (S.steamTemp - 40) / 180));
+  waterGrad.addColorStop(0,   `rgba(30, 120, 200, ${0.55 + waterHeat * 0.2})`);
+  waterGrad.addColorStop(0.4, `rgba(20, 160, 210, ${0.60 + waterHeat * 0.2})`);
+  waterGrad.addColorStop(0.8, `rgba(10, 180, 190, ${0.65 + waterHeat * 0.2})`);
+  waterGrad.addColorStop(1,   `rgba(5,  200, 170, ${0.55 + waterHeat * 0.2})`);
+  ctx.fillStyle = waterGrad;
+  ctx.fillRect(dX + dW * 0.08, waterTopY, dW * 0.84, drumBotY - waterTopY);
+
+  // reflexo especular na superfície da água
+  const reflGrad = ctx.createLinearGradient(0, waterTopY, 0, waterTopY + dH * 0.06);
+  reflGrad.addColorStop(0, `rgba(180, 230, 255, ${0.35 + steamInt * 0.2})`);
+  reflGrad.addColorStop(1, 'rgba(180, 230, 255, 0)');
+  ctx.fillStyle = reflGrad;
+  ctx.fillRect(dX + dW * 0.08, waterTopY, dW * 0.84, dH * 0.06);
+
+  // bolhas subindo na água (ebulição)
+  const drumSpd = S.running ? steamInt * 0.014 : 0.002;
+
+  // vapor acima da linha d'água (puffs)
+  drumSteamPtcl.slice(12).forEach(p => {
+    p.t += drumSpd + Math.random() * 0.0005;
+    if (p.t > 1) {
+      p.t -= 1;
+      p.ox = (Math.random() - 0.5) * dW * 0.7;
+      p.sz = 2 + Math.random() * 5;
+      p.wobble = (Math.random() - 0.5) * 0.04;
+    }
+    const baseX = dX + dW * 0.5 + p.ox;
+    const baseY = waterTopY; // parte da superfície da água
+    const px = baseX + Math.sin(p.t * Math.PI * 3 + p.ox) * 6;
+    const py = baseY - p.t * (waterTopY - dY) * 0.95;
+    const alpha = steamInt * (0.55 - p.t * 0.5);
+    if (alpha <= 0) return;
+    const puffR = ctx.createRadialGradient(px, py, 0, px, py, p.sz * (1 + p.t * 1.5));
+    puffR.addColorStop(0,   `rgba(200,230,255,${alpha})`);
+    puffR.addColorStop(0.5, `rgba(180,210,240,${alpha * 0.5})`);
+    puffR.addColorStop(1,   `rgba(150,190,220,0)`);
+    ctx.beginPath();
+    ctx.arc(px, py, p.sz * (1 + p.t * 2), 0, Math.PI * 2);
+    ctx.fillStyle = puffR;
+    ctx.fill();
+  });
+
+  // interface água/vapor — linha ondulada animada na superfície
+  const waveAmp  = 1.5 + steamInt * 3.5;
+  const waveFreq = 5;
+  const waveT    = Date.now() / 500;
+
+  // sombra abaixo da superfície
+  const ifaceGrad = ctx.createLinearGradient(0, waterTopY - 4, 0, waterTopY + 10);
+  ifaceGrad.addColorStop(0, `rgba(150,220,255,${0.15 + steamInt*0.2})`);
+  ifaceGrad.addColorStop(1, 'rgba(150,220,255,0)');
+  ctx.fillStyle = ifaceGrad;
+  ctx.fillRect(dX + dW * 0.08, waterTopY - 4, dW * 0.84, 14);
+
+  // linha da superfície ondulada
+  ctx.strokeStyle = `rgba(120, 210, 255, ${0.6 + steamInt * 0.3})`;
+  ctx.lineWidth   = 1.5;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  const x0w = dX + dW * 0.10;
+  const x1w = dX + dW * 0.90;
+  ctx.moveTo(x0w, waterTopY);
+  for (let wx = x0w; wx <= x1w; wx += 1.5) {
+    const frac = (wx - x0w) / (x1w - x0w);
+    const wy = waterTopY + Math.sin(frac * Math.PI * waveFreq + waveT) * waveAmp
+                         + Math.sin(frac * Math.PI * 3 + waveT * 1.3) * waveAmp * 0.4;
+    ctx.lineTo(wx, wy);
+  }
+  ctx.stroke();
+
+  // bolhas de ebulição subindo dentro da água
+  if (steamInt > 0.1) {
+    drumSteamPtcl.slice(0, 12).forEach(p => {
+      p.t += drumSpd * 0.6 + Math.random() * 0.0003;
+      if (p.t > 1) {
+        p.t  -= 1;
+        p.ox  = (Math.random() - 0.5) * dW * 0.65;
+        p.sz  = 1.5 + Math.random() * 3;
+        p.wobble = (Math.random() - 0.5) * 0.04;
+      }
+      const bx = dX + dW * 0.5 + p.ox + Math.sin(p.t * Math.PI * 4 + p.ox) * 3;
+      // bolhas sobem da base da água até a superfície
+      const by = drumBotY - p.t * (drumBotY - waterTopY);
+      if (by < waterTopY) return; // não passa da superfície
+      const alpha = steamInt * (0.5 - p.t * 0.3);
+      if (alpha <= 0) return;
+      ctx.beginPath();
+      ctx.arc(bx, by, p.sz * (0.5 + p.t * 0.5), 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(180,240,255,${alpha})`;
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+      // brilho interno da bolha
+      ctx.beginPath();
+      ctx.arc(bx - p.sz * 0.25, by - p.sz * 0.25, p.sz * 0.2, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(220,250,255,${alpha * 0.7})`;
+      ctx.fill();
+    });
+  }
+
+  // vapor acima da linha d'água (puffs)
+  drumSteamPtcl.slice(12).forEach(p => {
+    p.t += drumSpd + Math.random() * 0.0005;
+    if (p.t > 1) {
+      p.t -= 1;
+      p.ox = (Math.random() - 0.5) * dW * 0.7;
+      p.sz = 2 + Math.random() * 5;
+    }
+    const baseX = dX + dW * 0.5 + p.ox;
+    const px = baseX + Math.sin(p.t * Math.PI * 3 + p.ox) * 6;
+    const py = waterTopY - p.t * (waterTopY - dY) * 0.95;
+    const alpha = steamInt * (0.55 - p.t * 0.5);
+    if (alpha <= 0) return;
+    const puffR = ctx.createRadialGradient(px, py, 0, px, py, p.sz * (1 + p.t * 1.5));
+    puffR.addColorStop(0,   `rgba(200,230,255,${alpha})`);
+    puffR.addColorStop(0.5, `rgba(180,210,240,${alpha * 0.5})`);
+    puffR.addColorStop(1,   `rgba(150,190,220,0)`);
+    ctx.beginPath();
+    ctx.arc(px, py, p.sz * (1 + p.t * 2), 0, Math.PI * 2);
+    ctx.fillStyle = puffR;
+    ctx.fill();
+  });
+
+  ctx.restore();
+
+  ctx.fillStyle='#cdd'; ctx.font=`bold ${W*.02}px Inter`; ctx.textAlign='center';
+  ctx.fillText('Boiler',dX+dW/2,dY+dH*.45);
+  ctx.fillStyle='#7d8590'; ctx.font=`${W*.015}px Inter`;
+  ctx.fillText('Drum',dX+dW/2,dY+dH*.6);
+
+  // ── HEAT EXCHANGE pipe furnace → drum ──
+  const hxY=dY+dH*0.5;
+  ctx.strokeStyle=`rgba(255,${Math.floor(80+heat*120)},40,${0.4+heat*.5})`; ctx.lineWidth=4;
+  ctx.beginPath(); ctx.moveTo(fX+fW,hxY); ctx.lineTo(dX,hxY); ctx.stroke();
+  ctx.fillStyle='rgba(200,100,30,0.6)'; ctx.font=`${W*.012}px Inter`; ctx.textAlign='center';
+  ctx.fillText('Superaquecedor',fX+fW+(dX-fX-fW)/2,hxY-6);
+
+  // ── WATER IN ──
+  ctx.strokeStyle='#4fc3f7'; ctx.lineWidth=3; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(W*.97,wY); ctx.lineTo(dX+dW,wY); ctx.stroke();
+  // water IN flows right→left (enters drum from right)
+  wPtcl.forEach(p=>{
+    if(S.running){p.t+=fspd; if(p.t>1)p.t-=1;}
+    const px=W*.97-(W*.97-(dX+dW))*p.t;
+    ctx.beginPath(); ctx.arc(px,wY,3.5,0,Math.PI*2);
+    ctx.fillStyle=`rgba(79,195,247,${0.5+0.4*Math.sin(p.t*Math.PI*2)})`; ctx.fill();
+  });
+  arrow(ctx,dX+dW+16,wY,dX+dW+2,wY,'#4fc3f7');
+  instrRect(ctx,W*.88,wY-30,'FT','101','#4fc3f7',W);
+  ctx.fillStyle='#4fc3f7'; ctx.font=`${W*.012}px Inter`; ctx.textAlign='right';
+  ctx.fillText('Água Entrada',W*.97,wY-6);
+
+  // ── STEAM OUT ──
+  const stmY=dY+dH*.25;
+  ctx.strokeStyle='#ff6b6b'; ctx.lineWidth=3; ctx.setLineDash([6,4]);
+  ctx.beginPath(); ctx.moveTo(dX+dW*.92,stmY); ctx.lineTo(W*.97,stmY); ctx.stroke();
+  ctx.setLineDash([]);
+  sPtcl.forEach(p=>{
+    if(S.running){p.t+=sspd; if(p.t>1)p.t-=1;}
+    const px=dX+dW*.92+(W*.97-(dX+dW*.92))*p.t;
+    ctx.beginPath(); ctx.arc(px,stmY,4,0,Math.PI*2);
+    ctx.fillStyle=`rgba(255,107,107,${0.4+0.5*Math.sin(p.t*Math.PI)})`; ctx.fill();
+  });
+  arrow(ctx,W*.90,stmY,W*.96,stmY,'#ff6b6b');
+  instrRect(ctx,W*.88,stmY-30,'TT','201','#ff6b6b',W);
+  ctx.fillStyle='#ff6b6b'; ctx.font=`${W*.013}px var(--mono)`; ctx.textAlign='right';
+  ctx.fillText(`${S.steamTemp.toFixed(1)}°C`,W*.97,stmY-6);
+
+  // ── CONTROLLERS ──
+  const ticX2=dX+dW*0.5, ticY2=H*.06;
+  const wicX=fX+fW*0.5, wicY=H*.06;
+  blk(ctx,ticX2,ticY2,'TIC','201','#ccd',W);
+  blk(ctx,wicX,wicY,'WIC','401','#c8820a',W);
+  ctx.font=`bold ${W*.013}px Inter`; ctx.fillStyle='#334'; ctx.textAlign='center';
+  ctx.fillText('MASTER',ticX2,ticY2+28); ctx.fillText('SLAVE',wicX,wicY+28);
+
+  // control lines
+  ctx.strokeStyle='#2a3a22'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+  line2(ctx,W*.88,stmY-30,ticX2,ticY2+12);
+  line2(ctx,ticX2-30,ticY2,wicX+30,wicY);
+  line2(ctx,wicX,wicY+12,wicX,screwY-20);
+  ctx.setLineDash([]);
+
+  // mode badge
+  ctx.font=`bold ${W*.016}px Inter`;
+  ctx.fillStyle=S.ffOn?'#7ec850':'#ff6b6b';
+  ctx.textAlign='right';
+  ctx.fillText(`${S.ffOn?'FF + Feedback':'Feedback Only'}`,W-6,H*.96);
+}
+
+function drawFlame(ctx,x,y,intensity,maxH){
+  const h=maxH*intensity, t=Date.now()/220;
+  for(let i=0;i<3;i++){
+    const wx=x+(i-1)*9+Math.sin(t+i*1.3)*4;
+    ctx.beginPath();
+    ctx.moveTo(wx-7,y);
+    ctx.quadraticCurveTo(wx+Math.sin(t+i)*5,y-h*.5,wx,y-h);
+    ctx.quadraticCurveTo(wx+7,y-h*.3,wx+7,y);
+    ctx.closePath();
+    const g=ctx.createLinearGradient(wx,y,wx,y-h);
+    g.addColorStop(0,'#ff3300'); g.addColorStop(0.4,'#ff8800'); g.addColorStop(1,'rgba(255,220,50,0)');
+    ctx.fillStyle=g; ctx.fill();
+  }
+}
+function arrow(ctx,x1,y1,x2,y2,col){
+  const a=Math.atan2(y2-y1,x2-x1);
+  ctx.fillStyle=col; ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-10*Math.cos(a-.4),y2-10*Math.sin(a-.4));
+  ctx.lineTo(x2-10*Math.cos(a+.4),y2-10*Math.sin(a+.4));
+  ctx.closePath(); ctx.fill();
+}
+function line2(ctx,x1,y1,x2,y2){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}
+function instrRect(ctx,x,y,tag,num,col,W){
+  ctx.strokeStyle=col; ctx.fillStyle='#070b06'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.arc(x,y,16,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=col; ctx.font=`bold 8px Inter`; ctx.textAlign='center';
+  ctx.fillText(tag,x,y-1); ctx.fillStyle='#7d8590'; ctx.font='7px Inter'; ctx.fillText(num,x,y+8);
+}
+function blk(ctx,x,y,tag,sub,col,W){
+  const bw=58,bh=24;
+  ctx.fillStyle='#111810'; ctx.strokeStyle=col; ctx.lineWidth=1.5;
+  ctx.beginPath();
+  if(ctx.roundRect)ctx.roundRect(x-bw/2,y-bh/2,bw,bh,4); else ctx.rect(x-bw/2,y-bh/2,bw,bh);
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle=col; ctx.font='bold 9px Inter'; ctx.textAlign='center';
+  ctx.fillText(tag,x,y-2); ctx.fillStyle='#7d8590'; ctx.font='7px Inter'; ctx.fillText(sub,x,y+9);
+}
+
+// ══════════════════════════════════════════════
+// TREND CHARTS
+// ══════════════════════════════════════════════
+function drawTrend(cv,series,ymin,ymax,colors,dashes){
+  if(!cv._w) return;
+  const ctx=cv.getContext('2d');
+  const W=cv._w,H=cv._h;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#070b06'; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='#0e1a0a'; ctx.lineWidth=0.5;
+  for(let i=0;i<=4;i++){
+    const gy=H-(i/4)*H;
+    ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();
+    ctx.fillStyle='#2a3a22';ctx.font='9px Share Tech Mono';ctx.textAlign='left';
+    ctx.fillText((ymin+(ymax-ymin)*i/4).toFixed(0),2,gy-2);
+  }
+  series.forEach((data,si)=>{
+    ctx.strokeStyle=colors[si]; ctx.lineWidth=1.5;
+    ctx.setLineDash(dashes?dashes[si]:[]);
+    ctx.beginPath(); let st=false;
+    data.forEach((v,i)=>{
+      if(v===null){st=false;return;}
+      const px=(i/(HIST-1))*W;
+      const py=H-((v-ymin)/(ymax-ymin))*H;
+      if(!st){ctx.moveTo(px,py);st=true;}else ctx.lineTo(px,py);
+    });
+    ctx.stroke(); ctx.setLineDash([]);
+  });
+}
+
+// ══════════════════════════════════════════════
+// CANVAS SETUP
+// ══════════════════════════════════════════════
+const cvs={
+  pcPid:  document.getElementById('pc-pid'),
+  pcC1:   document.getElementById('pc-c1'),
+  pcC2:   document.getElementById('pc-c2'),
+  mobPid: document.getElementById('mob-pid'),
+  mobC1:  document.getElementById('mob-c1'),
+  mobC2:  document.getElementById('mob-c2'),
+};
+
+function initCV(cv){
+  if(!cv) return;
+  const dpr=window.devicePixelRatio||1;
+  const r=cv.getBoundingClientRect();
+  if(r.width===0) return;
+  cv.width=r.width*dpr; cv.height=r.height*dpr;
+  cv.getContext('2d').scale(dpr,dpr);
+  cv._w=r.width; cv._h=r.height;
+}
+function initAll(){ Object.values(cvs).forEach(initCV); }
+window.addEventListener('resize',initAll);
+
+// ══════════════════════════════════════════════
+// MOBILE TABS
+// ══════════════════════════════════════════════
+function mobTab(idx){
+  document.querySelectorAll('.mob-tab').forEach((t,i)=>t.classList.toggle('active',i===idx));
+  document.querySelectorAll('.mob-tc').forEach((c,i)=>c.classList.toggle('active',i===idx));
+}
+
+// ══════════════════════════════════════════════
+// DEMO AUTOMÁTICO
+// ══════════════════════════════════════════════
+const DEMO = {
+  active: false,
+  phase: 0,       // tempo interno do demo em segundos
+  ffCycle: 0,     // controla quando ligar/desligar FF
+  bannerMsg: '',
+  bannerTimer: 0,
+
+  // fases do loop (duração em segundos de simulação)
+  // cada fase modula variáveis diferentes para mostrar dinâmica
+  PHASE_DURATION: 120,
+
+  start(){
+    this.active = true;
+    this.phase  = 0;
+    this.ffCycle= 0;
+    sim.start();
+    // garante FF desligado no início para mostrar diferença
+    if(S.ffOn) sim.toggleFF();
+    this._showBanner('🎬 DEMO AUTO — Observando Feedback puro...', 4000);
+    _demoBtnState(true);
+  },
+
+  stop(){
+    this.active = false;
+    sim.stop();
+    _demoBtnState(false);
+    this._hideBanner();
+  },
+
+  _showBanner(msg, duration){
+    this.bannerMsg = msg;
+    ['pc-demo-banner','mob-demo-banner'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el){ el.textContent=msg; el.style.opacity='1'; el.style.transform='translateY(0)'; }
+    });
+    clearTimeout(this.bannerTimer);
+    if(duration){
+      this.bannerTimer = setTimeout(()=>this._hideBanner(), duration);
+    }
+  },
+
+  _hideBanner(){
+    ['pc-demo-banner','mob-demo-banner'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el){ el.style.opacity='0'; el.style.transform='translateY(-8px)'; }
+    });
+  },
+
+  tick(){
+    if(!this.active) return;
+    this.phase += DT;
+    const t = this.phase;
+
+    // ── VARIÁVEIS OSCILATÓRIAS em loop senoidal ──
+    // Umidade: oscila 10%→28% com período ~90s — principal perturbação
+    const moistTarget = 19 + 9 * Math.sin(t / 28);
+    S.moist = moistTarget;
+    _syncSlider('pc-sl-moist','mob-sl-moist','v-moist', moistTarget.toFixed(0));
+
+    // Vazão de água: oscila 30→55 kg/s com período ~70s
+    const flowTarget = 42 + 12 * Math.sin(t / 22 + 1.0);
+    S.flow = flowTarget;
+    _syncSlider('pc-sl-flow','mob-sl-flow','v-flow', flowTarget.toFixed(0));
+
+    // Temperatura água entrada: oscila 35→55°C com período ~110s
+    const cwtTarget = 45 + 10 * Math.sin(t / 35 + 2.1);
+    S.cwt = cwtTarget;
+    _syncSlider('pc-sl-cwt','mob-sl-cwt','v-cwt', cwtTarget.toFixed(0));
+
+    // Setpoint vapor: muda a cada ~180s entre 160 e 200°C
+    const spTarget = 180 + 20 * Math.sign(Math.sin(t / 55));
+    S.sp = spTarget;
+    _syncSlider('pc-sl-sp','mob-sl-sp','v-sp', spTarget.toFixed(0));
+
+    // ── CICLO FF ON/OFF — liga aos 60s, desliga aos 180s, repete ──
+    const cycle = Math.floor(t / 60) % 3; // 0=FB puro, 1=FF+FB, 2=FB puro novamente
+    if(cycle === 0 && S.ffOn){
+      sim.toggleFF();
+      this._showBanner('📉 Feedback puro — observe a temperatura oscilar com a umidade', 5000);
+    } else if(cycle === 1 && !S.ffOn){
+      sim.toggleFF();
+      this._showBanner('⚡ Feed Forward LIGADO — antecipando variação de umidade!', 5000);
+    } else if(cycle === 2 && S.ffOn){
+      sim.toggleFF();
+      this._showBanner('📊 Comparando: FF desligado — resposta mais lenta ao mesmo distúrbio', 5000);
+    }
+
+    // ── BANNER INFORMATIVO rotativo a cada 30s ──
+    const infoPhase = Math.floor(t / 30) % 5;
+    if(Math.abs((t % 30) - 0.1) < DT * 1.5){
+      const msgs = [
+        `🌿 Umidade do caroço: ${moistTarget.toFixed(0)}% — PCI efetivo: ${(18-(moistTarget-8)*0.3).toFixed(1)} MJ/kg`,
+        `💧 Vazão água: ${flowTarget.toFixed(0)} kg/s — carga térmica variando`,
+        `🌡 Setpoint vapor: ${spTarget.toFixed(0)}°C — grelha a ${S.grateTemp.toFixed(0)}°C`,
+        `⚖️ λ=${S.lambda.toFixed(2)} — O₂=${S.o2.toFixed(1)}% nos gases de combustão`,
+        `🔄 Loop completo: umidade ↑ → PCI ↓ → ${S.ffOn?'FF compensa rosca ✅':'temperatura cai ⚠️'}`,
+      ];
+      this._showBanner(msgs[infoPhase], 8000);
+    }
+  }
+};
+
+function _syncSlider(pcId, mobId, valSuffix, val){
+  const pc=document.getElementById(pcId); if(pc) pc.value=val;
+  const mb=document.getElementById(mobId); if(mb) mb.value=val;
+  // atualiza labels com animação flash
+  [pcId.replace('sl-','v-'), mobId.replace('sl-','v-')].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){
+      el.textContent=val;
+      el.style.transition='color .3s';
+      el.style.color='var(--accent)';
+      setTimeout(()=>{ el.style.color=''; }, 400);
+    }
+  });
+}
+
+function _demoBtnState(on){
+  ['pc-btn-demo','mob-btn-demo'].forEach(id=>{
+    const b=document.getElementById(id);
+    if(!b) return;
+    if(on){
+      b.textContent='⏹ Parar Demo';
+      b.style.background='var(--warn)';
+      b.style.color='#000';
+    } else {
+      b.textContent='▶ Demo Auto';
+      b.style.background='var(--accent)';
+      b.style.color='#000';
+    }
+  });
+}
+
+// ══════════════════════════════════════════════
+// LOOP
+// ══════════════════════════════════════════════
+let lastTick=0, inited=false;
+function loop(ts){
+  if(!inited){initAll();inited=true;}
+  if(ts-lastTick>=100){
+    lastTick=ts;
+    DEMO.tick();
+    simStep();
+    if(cvs.pcPid._w)  drawPID(cvs.pcPid);
+    if(cvs.mobPid._w) drawPID(cvs.mobPid);
+    const t1=[H.temp,H.sp,H.feed,H.o2h];
+    const c1=['#ff6b6b','rgba(255,255,255,.35)','#c8820a','#80deea'];
+    const d1=[[],[6,4],[],[]];
+    const t2=[H.ctrl,H.moist,H.grate];
+    const c2=['#7ec850','#ce93d8','#f78166'];
+    if(cvs.pcC1._w)  drawTrend(cvs.pcC1, t1,0,100,c1,d1);
+    if(cvs.pcC2._w)  drawTrend(cvs.pcC2, t2,0,100,c2,null);
+    if(cvs.mobC1._w) drawTrend(cvs.mobC1,t1,0,100,c1,d1);
+    if(cvs.mobC2._w) drawTrend(cvs.mobC2,t2,0,100,c2,null);
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
